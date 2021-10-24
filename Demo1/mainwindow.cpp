@@ -8,7 +8,7 @@
 #include<QMessageBox>
 #include<algorithm>
 struct students{
-    QString stuId=NULL,name=NULL,courseName=NULL,courseId=NULL,teacher=NULL;
+    QString stuId=NULL,name=NULL,courseName=NULL,courseId=NULL,teacher=NULL,college=NULL,professionalClass=NULL;
     bool isChecked;
 };
 struct course{
@@ -83,7 +83,7 @@ void MainWindow::on_chooseFile_clicked(){
     const int rowCount = varRows.size();
     QVariantList names = varRows[0].toList();
     const int colCount=names.size();
-    int stuId=-1,stuName=-1,check=-1;//学生学号、姓名、性别、原班级、是否确认;
+    int stuId=-1,stuName=-1,check=-1,college=-1,professionalClass=-1;//学生学号、姓名、性别、原班级、是否确认;
     int courseId=-1,courseCName=-1,courseName=-1,teacher=-1;//课程代码、课程名称、课程详细名称、上课教师;
     for(int i=0;i<colCount;++i){
         if(names[i].toString()=="学号")stuId=i;
@@ -93,6 +93,8 @@ void MainWindow::on_chooseFile_clicked(){
         if(names[i].toString()=="原教学班")courseName=i;
         if(names[i].toString()=="课程代码")courseId=i;
         if(names[i].toString()=="上课教师")teacher=i;
+        if(names[i].toString()=="学院")college=i;
+        if(names[i].toString()=="班级")professionalClass=i;
     }
     qDebug()<<"23333"<<endl;
     if(stuId==-1||stuName==-1||check==-1||courseId==-1||courseName==-1||teacher==-1){
@@ -100,6 +102,8 @@ void MainWindow::on_chooseFile_clicked(){
         if(stuId==-1)x+="学号\n";
         if(stuName==-1)x+="姓名\n";
         if(check==-1)x+="补考确认\n";
+        if(college==-1)x+="学院\n";
+        if(professionalClass==-1)x+="班级\n";
         if(courseId==-1)x+="课程名称\n";
         if(courseCName==-1)x+="原教学班\n";
         if(courseName==-1)x+="原教学班\n";
@@ -125,6 +129,8 @@ void MainWindow::on_chooseFile_clicked(){
         tmpStu.stuId=rowData[stuId].toString();
         tmpStu.name=rowData[stuName].toString();
         tmpStu.isChecked=rowData[check].toString()=="是";
+        tmpStu.college=rowData[college].toString();
+        tmpStu.professionalClass=rowData[professionalClass].toString();
         tmpStu.courseName=rowData[courseName].toString();
         tmpStu.teacher=rowData[teacher].toString();
         tmpStu.courseId=rowData[courseId].toString();
@@ -336,6 +342,10 @@ void MainWindow::on_generateTable_clicked(){
     range->dynamicCall("SetValue(const QString&)","学生学号");
     range = sheet->querySubObject("Cells(int,int)",1,10);
     range->dynamicCall("SetValue(const QString&)","补考确认");
+    range = sheet->querySubObject("Cells(int,int)",1,11);
+    range->dynamicCall("SetValue(const QString&)","学院");
+    range = sheet->querySubObject("Cells(int,int)",1,12);
+    range->dynamicCall("SetValue(const QString&)","班级");
     int tmp=1;
     for(int i=0;i<14;++i){
         if(avaliableTime[i].size()==0)continue;
@@ -385,6 +395,10 @@ void MainWindow::on_generateTable_clicked(){
                     range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                     if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                     else range->dynamicCall("SetValue(const QString&)","否");
+                    range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
+                    range->dynamicCall("SetValue(const QString&)",tmpStu.college);
+                    range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
+                    range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
                     tmp++;
                     if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
                     {
@@ -549,6 +563,10 @@ void MainWindow::on_generateTable_clicked(){
     range->dynamicCall("SetValue(const QString&)","学生学号");
     range = sheet->querySubObject("Cells(int,int)",1,10);
     range->dynamicCall("SetValue(const QString&)","补考确认");
+    range = sheet->querySubObject("Cells(int,int)",1,11);
+    range->dynamicCall("SetValue(const QString&)","学院");
+    range = sheet->querySubObject("Cells(int,int)",1,10);
+    range->dynamicCall("SetValue(const QString&)","班级");
     tmp=1;
     QString date="周六下午";
     int numOfRoom=rooms.size();
@@ -570,6 +588,10 @@ void MainWindow::on_generateTable_clicked(){
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                 if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                 else range->dynamicCall("SetValue(const QString&)","否");
+                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
+                range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
+                range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
                 tmp++;
                 if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
                 {
@@ -726,6 +748,10 @@ void MainWindow::on_generateTable_clicked(){
     range->dynamicCall("SetValue(const QString&)","学生学号");
     range = sheet->querySubObject("Cells(int,int)",1,10);
     range->dynamicCall("SetValue(const QString&)","补考确认");
+    range = sheet->querySubObject("Cells(int,int)",1,11);
+    range->dynamicCall("SetValue(const QString&)","学院");
+    range = sheet->querySubObject("Cells(int,int)",1,12);
+    range->dynamicCall("SetValue(const QString&)","班级");
     tmp=1;
     date="周六下午";
 
@@ -748,6 +774,10 @@ void MainWindow::on_generateTable_clicked(){
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                 if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                 else range->dynamicCall("SetValue(const QString&)","否");
+                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
+                range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
+                range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
                 tmp++;
                 if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
                 {
@@ -903,6 +933,10 @@ void MainWindow::on_generateTable_clicked(){
     range->dynamicCall("SetValue(const QString&)","学生学号");
     range = sheet->querySubObject("Cells(int,int)",1,10);
     range->dynamicCall("SetValue(const QString&)","补考确认");
+    range = sheet->querySubObject("Cells(int,int)",1,11);
+    range->dynamicCall("SetValue(const QString&)","学院");
+    range = sheet->querySubObject("Cells(int,int)",1,12);
+    range->dynamicCall("SetValue(const QString&)","班级");
     tmp=1;
     date="周六下午";
 
@@ -926,6 +960,10 @@ void MainWindow::on_generateTable_clicked(){
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                 if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                 else range->dynamicCall("SetValue(const QString&)","否");
+                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
+                range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
+                range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
                 tmp++;
                 if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
                 {
