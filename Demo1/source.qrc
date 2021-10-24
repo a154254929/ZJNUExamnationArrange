@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/images" lang="Chinese">
+        <file>importFile.png</file>
+        <file>exportFile.png</file>
+        <file>icon.ico</file>
+        <file>background.jpeg</file>
+        <file>background2.png</file>
+    </qresource>
+</RCC>
