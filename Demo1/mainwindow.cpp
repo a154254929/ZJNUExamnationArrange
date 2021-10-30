@@ -335,7 +335,7 @@ void MainWindow::on_generateTable_clicked(){
     range = sheet->querySubObject("Cells(int,int)",1,6);
     range->dynamicCall("SetValue(const QString&)","上课教师");
     range = sheet->querySubObject("Cells(int,int)",1,7);
-    range->dynamicCall("SetValue(const QString&)","课程代码");
+    range->dynamicCall("SetValue(const QString&)","教学班补考人数");
     range = sheet->querySubObject("Cells(int,int)",1,8);
     range->dynamicCall("SetValue(const QString&)","学生姓名");
     range = sheet->querySubObject("Cells(int,int)",1,9);
@@ -413,14 +413,14 @@ void MainWindow::on_generateTable_clicked(){
                         range->setProperty("VerticalAlignment", -4108);//xlCenter
                         range->setProperty("WrapText", true);
                         range->setProperty("MergeCells", true);
-                        range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher);
+                        range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
                         cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                         range = sheet->querySubObject("Range(const QString&)",cell);
                         range->setProperty("VerticalAlignment", -4108);//xlCenter
                         range->setProperty("WrapText", true);
                         range->setProperty("MergeCells", true);
                         range->setProperty("NumberFormatLocal", "@");
-                        range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseId);
+                        range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame));
                         lastSame=tmp;
                     }
                 }
@@ -436,14 +436,14 @@ void MainWindow::on_generateTable_clicked(){
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
                 range->setProperty("WrapText", true);
                 range->setProperty("MergeCells", true);
-                range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher);
+                range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
                 cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
                 range = sheet->querySubObject("Range(const QString&)",cell);
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
                 range->setProperty("WrapText", true);
                 range->setProperty("MergeCells", true);
                 range->setProperty("NumberFormatLocal", "@");
-                range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseId);
+                range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame+1));
                 cell=("D"+QString::number(courseStart)+":"+"D"+QString::number(courseEnd));
                 range = sheet->querySubObject("Range(const QString&)",cell);
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -556,7 +556,7 @@ void MainWindow::on_generateTable_clicked(){
     range = sheet->querySubObject("Cells(int,int)",1,6);
     range->dynamicCall("SetValue(const QString&)","上课教师");
     range = sheet->querySubObject("Cells(int,int)",1,7);
-    range->dynamicCall("SetValue(const QString&)","课程代码");
+    range->dynamicCall("SetValue(const QString&)","教学班补考人数");
     range = sheet->querySubObject("Cells(int,int)",1,8);
     range->dynamicCall("SetValue(const QString&)","学生姓名");
     range = sheet->querySubObject("Cells(int,int)",1,9);
@@ -606,14 +606,14 @@ void MainWindow::on_generateTable_clicked(){
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher);
+                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
                     cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
                     range->setProperty("NumberFormatLocal", "@");
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseId);
+                    range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame));
                     lastSame=tmp;
                 }
             }
@@ -635,14 +635,14 @@ void MainWindow::on_generateTable_clicked(){
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher);
+            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
             cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
             range->setProperty("NumberFormatLocal", "@");
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseId);
+            range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame+1));
         }
         int roomEnd=tmp;
         QString cell=("C"+QString::number(roomStart)+":"+"C"+QString::number(roomEnd));
@@ -741,7 +741,7 @@ void MainWindow::on_generateTable_clicked(){
     range = sheet->querySubObject("Cells(int,int)",1,6);
     range->dynamicCall("SetValue(const QString&)","上课教师");
     range = sheet->querySubObject("Cells(int,int)",1,7);
-    range->dynamicCall("SetValue(const QString&)","课程代码");
+    range->dynamicCall("SetValue(const QString&)","教学班补考人数");
     range = sheet->querySubObject("Cells(int,int)",1,8);
     range->dynamicCall("SetValue(const QString&)","学生姓名");
     range = sheet->querySubObject("Cells(int,int)",1,9);
@@ -792,14 +792,14 @@ void MainWindow::on_generateTable_clicked(){
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher);
+                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
                     cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
                     range->setProperty("NumberFormatLocal", "@");
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseId);
+                    range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame));
                     lastSame=tmp;
                 }
             }
@@ -821,14 +821,14 @@ void MainWindow::on_generateTable_clicked(){
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher);
+            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
             cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
             range->setProperty("NumberFormatLocal", "@");
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseId);
+            range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame+1));
         }
         int roomEnd=tmp;
         QString cell=("C"+QString::number(roomStart)+":"+"C"+QString::number(roomEnd));
@@ -926,7 +926,7 @@ void MainWindow::on_generateTable_clicked(){
     range = sheet->querySubObject("Cells(int,int)",1,6);
     range->dynamicCall("SetValue(const QString&)","上课教师");
     range = sheet->querySubObject("Cells(int,int)",1,7);
-    range->dynamicCall("SetValue(const QString&)","课程代码");
+    range->dynamicCall("SetValue(const QString&)","教学班补考人数");
     range = sheet->querySubObject("Cells(int,int)",1,8);
     range->dynamicCall("SetValue(const QString&)","学生姓名");
     range = sheet->querySubObject("Cells(int,int)",1,9);
@@ -978,14 +978,14 @@ void MainWindow::on_generateTable_clicked(){
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher);
+                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
                     cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
                     range->setProperty("NumberFormatLocal", "@");
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseId);
+                    range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame));
                     lastSame=tmp;
                 }
             }
@@ -1007,14 +1007,14 @@ void MainWindow::on_generateTable_clicked(){
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher);
+            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
             cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
             range->setProperty("NumberFormatLocal", "@");
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseId);
+            range->dynamicCall("SetValue(const QString&)",QString::number(tmp-lastSame+1));
         }
         int roomEnd=tmp;
         QString cell=("C"+QString::number(roomStart)+":"+"C"+QString::number(roomEnd));
