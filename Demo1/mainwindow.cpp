@@ -1,37 +1,61 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include<QFileDialog>
+#include <QFileDialog>
 #include <QAxObject>
-#include<QFileDialog>
-#include<QDebug>
-#include<QTime>
-#include<QMessageBox>
-#include<algorithm>
-struct students{
-    QString stuId=NULL,name=NULL,courseName=NULL,courseId=NULL,teacher=NULL,college=NULL,professionalClass=NULL;
+#include <QFileDialog>
+#include <QDebug>
+#include <QTime>
+#include <QMessageBox>
+#include <algorithm>
+#include <QPair>
+struct student{
+    QString stuId=NULL,
+            name = NULL,
+            className = NULL,
+            college = NULL,
+            professionalClass = NULL;
     bool isChecked;
 };
-struct course{
-    QString courseName=NULL;
-    bool chineseStuExist,internationalStuExist;
-    QVector<students>stus;
+struct Class{
+    QString className = NULL,
+            courseName = NULL,
+            teacher = NULL;
+    QVector<student> stus;
 };
-bool stuCmp(students A,students B)
-{
-    if(A.courseName!=B.courseName)return A.courseName<B.courseName;
-    else return  A.stuId<B.stuId;
+
+struct course{
+    QString courseName = NULL,
+            courseId = NULL;
+    bool chineseStuExist, internationalStuExist;
+    QVector<int> Classes;
+};
+
+
+QVector<Class> classes;
+QVector<course> courses;
+QMap<QPair<QString, QString>, int> classMap;
+QMap<QString, int> courseMap;
+QVector<course> ordinary,math,computerA,computerB;
+
+
+bool stuCmp(student A, student B){
+    if(A.className != B.className){
+        return A.className < B.className;
+    }
+    return  A.stuId < B.stuId;
 }
-QVector<course>courses;
-QMap<QString,int>courseExist;
-QVector<course>ordinary,math,computerA,computerB;
+bool classCmp(int A, int B){
+    return classes[A].stus.size() < classes[B].stus.size();
+}
+
 struct examinationRoom{
-    QVector<course>arrangedCourse;
-    int totStudents=0;
-    int start=0,end=0;
+    QVector<int> arrangedClasses;
+    int totStudents = 0;
+    int start = 0, end = 0;
 };
 int maxRoomLimite;
-bool roomCmp(examinationRoom A,examinationRoom B){return A.totStudents>B.totStudents;}
-QVector<examinationRoom>avaliableTime[14];
+bool roomCmp(examinationRoom A, examinationRoom B){return A.totStudents > B.totStudents;}
+QVector<examinationRoom> avaliableTime[14];
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -55,13 +79,16 @@ void MainWindow::on_chooseFile_clicked(){
     fileName=QFileDialog::getOpenFileName(this,tr("选择文件"),"",tr("Excel文件(*.xls *.xlsx)"));
     maxRoomLimite=90;
     if(fileName.isNull()){return;}
+    //清空各个容器
+    classes.clear();
     courses.clear();
-    courseExist.clear();
+    classMap.clear();
+    courseMap.clear();
     math.clear();
     ordinary.clear();
     computerA.clear();
     computerB.clear();
-    QAxObject *excel = new QAxObject(this);    //连接Excel控件
+    QAxObject* excel = new QAxObject(this);    //连接Excel控件
     excel->setControl("ket.Application");  //连接Excel控件
     excel->setProperty("Visible", false);  //不显示窗体
     QAxObject* workbooks = excel->querySubObject("WorkBooks");  //获取工作簿集合
@@ -83,31 +110,47 @@ void MainWindow::on_chooseFile_clicked(){
     const int rowCount = varRows.size();
     QVariantList names = varRows[0].toList();
     const int colCount=names.size();
-    int stuId=-1,stuName=-1,check=-1,college=-1,professionalClass=-1;//学生学号、姓名、性别、原班级、是否确认;
-    int courseId=-1,courseCName=-1,courseName=-1,teacher=-1;//课程代码、课程名称、课程详细名称、上课教师;
+    //信息的位置
+    int stuId = -1,     //学生学号
+        stuName = -1,   //学生姓名
+        check = -1,     //学生是否确认补缓考
+        college = -1,   //学生所在学院
+        professionalClass = -1;//学生所在专业班级;
+    int className = -1, //教学班班级名称
+        teacher = -1;//上课教师;
+    int courseId = -1,//课程ID
+        courseName = -1;//补考课程详细名称
     for(int i=0;i<colCount;++i){
-        if(names[i].toString()=="学号")stuId=i;
-        if(names[i].toString()=="姓名")stuName=i;
+        if(names[i].toString()=="学号")stuId = i;
+        if(names[i].toString()=="姓名")stuName = i;
         if(names[i].toString()=="补考确认")check=i;
-        if(names[i].toString()=="课程名称")courseCName=i;
-        if(names[i].toString()=="原教学班")courseName=i;
-        if(names[i].toString()=="课程代码")courseId=i;
-        if(names[i].toString()=="上课教师")teacher=i;
-        if(names[i].toString()=="学院")college=i;
-        if(names[i].toString()=="班级")professionalClass=i;
+        if(names[i].toString()=="课程代码")courseId = i;
+        if(names[i].toString()=="课程名称")courseName = i;
+        if(names[i].toString()=="原教学班")className = i;
+        if(names[i].toString()=="上课教师")teacher = i;
+        if(names[i].toString()=="学院")college = i;
+        if(names[i].toString()=="班级")professionalClass = i;
     }
-    qDebug()<<"23333"<<endl;
-    if(stuId==-1||stuName==-1||check==-1||courseId==-1||courseName==-1||teacher==-1){
+
+    if(stuId == -1
+        || stuName == -1
+        || check == -1
+        || courseId == -1
+        || courseName == -1
+        || className == -1
+        || teacher == -1
+        || college == -1
+        || professionalClass == -1){
         QString x="文件缺少:\n";
-        if(stuId==-1)x+="学号\n";
-        if(stuName==-1)x+="姓名\n";
-        if(check==-1)x+="补考确认\n";
-        if(college==-1)x+="学院\n";
-        if(professionalClass==-1)x+="班级\n";
-        if(courseId==-1)x+="课程名称\n";
-        if(courseCName==-1)x+="原教学班\n";
-        if(courseName==-1)x+="原教学班\n";
-        if(teacher==-1)x+="上课教师\n";
+        if(stuId == -1)x += "学号\n";
+        if(stuName == -1)x += "姓名\n";
+        if(check == -1)x += "补考确认\n";
+        if(courseId == -1)x += "课程代码\n";
+        if(courseName == -1)x += "课程名称\n";
+        if(className == -1)x += "原教学班\n";
+        if(teacher == -1)x += "上课教师\n";
+        if(college == -1)x += "学院\n";
+        if(professionalClass == -1)x += "班级\n";
         QMessageBox::information(this,"文件信息缺失",x);
         setMessage("信息处理失败:文件信息不全!!!!");
         ui->generateTable->setDisabled(true);
@@ -124,38 +167,56 @@ void MainWindow::on_chooseFile_clicked(){
     for(int i = 1; i < rowCount; ++i)
     {
         QVariantList rowData=varRows[i].toList();
-        students tmpStu;
-        int tmpCourse;
-        tmpStu.stuId=rowData[stuId].toString();
-        tmpStu.name=rowData[stuName].toString();
-        tmpStu.isChecked=rowData[check].toString()=="是";
-        tmpStu.college=rowData[college].toString();
-        tmpStu.professionalClass=rowData[professionalClass].toString();
-        tmpStu.courseName=rowData[courseName].toString();
-        tmpStu.teacher=rowData[teacher].toString();
-        tmpStu.courseId=rowData[courseId].toString();
-        QString CName;
-        CName=rowData[courseCName].toString();
-        if(courseExist[CName]==0){
-            course tmpC;
-            tmpC.courseName=CName;
-            tmpC.chineseStuExist=false;
-            tmpC.internationalStuExist=false;
-            courses.push_back(tmpC);
-            courseExist[CName]=courses.size();
+        student tmpStu;
+        tmpStu.stuId = rowData[stuId].toString();
+        tmpStu.name = rowData[stuName].toString();
+        tmpStu.isChecked = (rowData[check].toString() == "是");
+        tmpStu.className = rowData[className].toString();
+        tmpStu.college = rowData[college].toString();
+        tmpStu.professionalClass = rowData[professionalClass].toString();
+        QString tmpCourseName;
+        if(rowData[className].toString().contains("高等数学")){
+            tmpCourseName = rowData[courseName].toString();
         }
-        tmpCourse=courseExist[CName]-1;
-        courses[tmpCourse].stus.push_back(tmpStu);
-        int length=tmpStu.name.size();
+        else{
+            int endIndex = rowData[className].toString().length();
+            while(tmpStu.className[endIndex - 1] == '-' || (tmpStu.className[endIndex - 1] >= '0' && tmpStu.className[endIndex - 1] <= '9'))endIndex--;
+            tmpCourseName = rowData[className].toString().mid(0, endIndex);
+            qDebug()<<tmpCourseName<<endl;
+        }
+        if(courseMap[tmpCourseName] == 0){
+            course tmpCourse;
+            tmpCourse.courseName = tmpCourseName;
+            tmpCourse.courseId = rowData[courseId].toString();
+            tmpCourse.chineseStuExist=false;
+            tmpCourse.internationalStuExist=false;
+            courses.push_back(tmpCourse);
+            courseMap[tmpCourseName] = courses.size();
+        }
+        int tmpCourseOrder = courseMap[tmpCourseName] - 1;
+        QString tmpClassName = rowData[className].toString();
+        QString tmpTeacher = rowData[teacher].toString();
+        if(classMap[{tmpCourseName, tmpTeacher}] == 0){
+            Class tmpClass;
+            tmpClass.className = tmpClassName;
+            tmpClass.courseName = tmpCourseName;
+            tmpClass.teacher = tmpTeacher;
+            classes.push_back(tmpClass);
+            classMap[{tmpCourseName, tmpTeacher}] = classes.size();
+            courses[tmpCourseOrder].Classes.push_back(classes.size() - 1);
+        }
+        int tmpClassOrder = classMap[{tmpCourseName, tmpTeacher}] - 1;
+        classes[tmpClassOrder].stus.push_back(tmpStu);
+        int length = tmpStu.name.size();
         for(int k=0;k<length;++k){
-            QChar cha=tmpStu.name.at(k);
-            ushort uni=cha.unicode();
-            if((uni>='a'&&uni<='z')||(uni>='A'&&uni<='Z')){
-                courses[tmpCourse].internationalStuExist=true;
+            QChar cha = tmpStu.name.at(k);
+            ushort uni = cha.unicode();
+            if((uni >= 'a' && uni <=' z') || (uni >= 'A' &&uni <= 'Z')){
+                courses[tmpCourseOrder].internationalStuExist = true;
                 break;
             }
             if(uni>=0x4E00&&uni<=0x9FA5){
-                courses[tmpCourse].chineseStuExist=true;
+                courses[tmpCourseOrder].chineseStuExist = true;
                 break;
             }
         }
@@ -167,10 +228,12 @@ void MainWindow::on_chooseFile_clicked(){
     delete workbook;
     delete workbooks;
     delete excel;
-    int numOfCourses=courses.size();
-    for(int i=0;i<numOfCourses;++i){
-        if(!courses[i].stus.size())continue;
-        qSort(courses[i].stus.begin(),courses[i].stus.end(),stuCmp);
+    int numOfCourses = courses.size();
+    for(int i = 0; i < numOfCourses; ++ i){
+        for(int j = 0;j < courses[i].Classes.size(); ++ j){
+            qSort(classes[courses[i].Classes[j]].stus.begin(), classes[courses[i].Classes[j]].stus.end(), stuCmp);
+        }
+        qSort(courses[i].Classes.begin(), courses[i].Classes.end(), classCmp);
         if(courses[i].courseName.contains("高等数学"))math.push_back(courses[i]);
         else if(courses[i].courseName.contains("计算机应用A"))computerA.push_back(courses[i]);
         else if(courses[i].courseName.contains("计算机应用B"))computerB.push_back(courses[i]);
@@ -207,108 +270,108 @@ void MainWindow::on_generateTable_clicked(){
 
     for(int i=0;i<14;++i)avaliableTime[i].clear();
     setMessage("专业课考试安排中........");
-    int numOfOrdinary=ordinary.size();
-    for(int i=0;i<numOfOrdinary;++i){
-        int stuNum=ordinary[i].stus.size();
-        for(int j=0;j<14;++j){
-            if(j%2==0&&ordinary[i].internationalStuExist)continue;
-            bool flag=true;
-            int numOfRoom=avaliableTime[j].size();
-            int studentsLeft=ordinary[i].stus.size(),totStudents=ordinary[i].stus.size();
-            for(int k=0;k<numOfRoom&&flag;++k){
-                int numOfCourses=avaliableTime[j][k].arrangedCourse.size();
-                for(int l=0;l<numOfCourses&&flag;++l){
-                    int tmpStu=avaliableTime[j][k].arrangedCourse[l].stus.size();
-                    for(int m=0;m<stuNum&&flag;++m){
-                        for(int n=0;n<tmpStu&&flag;++n){
-                            if(ordinary[i].stus[m].stuId==avaliableTime[j][k].arrangedCourse[l].stus[n].stuId)flag=false;
+    int numOfOrdinary = ordinary.size();
+    for(int i = 0;i < numOfOrdinary; ++ i){
+        course tmpCourse = ordinary[i];
+        int classNum = ordinary[i].Classes.size();
+        for(int j = 0; j < 14; ++ j){
+            if(j % 2 == 0 && tmpCourse.internationalStuExist)continue;//有留学生的考试不安排在晚上
+            bool flag = true;//标识这一个时间段有没有学生安排重复
+            for(int k = 0; k < classNum && flag; ++k){
+                Class tmpClass = classes[tmpCourse.Classes[k]];
+                int numOfRoom = avaliableTime[j].size();
+                int stuNum = tmpClass.stus.size();
+                for(int l = 0; l < numOfRoom && flag; ++ l){
+                    int numOfClass = avaliableTime[j][l].arrangedClasses.size();
+                    for(int m=0; m < numOfClass && flag; ++ m){
+                        int tmpArrangedClass = avaliableTime[j][l].arrangedClasses[m];
+                        int tmpStuNum = classes[tmpArrangedClass].stus.size();
+                        for(int n = 0; n< stuNum && flag; ++n){
+                            for(int o=0;o < tmpStuNum && flag; ++ o){
+                                if(tmpClass.stus[n].stuId ==
+                                   classes[tmpArrangedClass].stus[o].stuId)flag = false;
+                            }
                         }
                     }
                 }
             }
+            //如果没有学生重复，则安排进这个时间段
             if(flag){
-                course tmpCourse=ordinary[i];
-                while(studentsLeft>=maxRoomLimite)
+                int classesArranged = 0,
+                    totClasses = classNum;
+                int isClassArranged[classNum];
+                for(int k = 0; k < classNum; ++k)isClassArranged[k] = 0;
+                while(classesArranged < totClasses)
                 {
-                    course tmpPartC;
-                    for(int j=totStudents-studentsLeft;j<totStudents-studentsLeft+maxRoomLimite;++j)
-                    {
-                        tmpPartC.stus.push_back(tmpCourse.stus[j]);
-                    }
-                    tmpPartC.courseName=tmpCourse.courseName;
-                    tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-                    tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
                     examinationRoom tmpRoom;
-                    tmpRoom.arrangedCourse.push_back(tmpPartC);
-                    tmpRoom.totStudents=maxRoomLimite;
-                    avaliableTime[j].push_back(tmpRoom);
-                    studentsLeft-=maxRoomLimite;
-                }
-                if(studentsLeft)
-                {
-                    bool done=false;
-                    course tmpPartC;
-                    for(int j=totStudents-studentsLeft;j<totStudents;++j)
+                    for(int k = 0; k < classNum; ++k)
                     {
-                        tmpPartC.stus.push_back(tmpCourse.stus[j]);
-                    }
-                    tmpPartC.courseName=tmpCourse.courseName;
-                    tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-                    tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
-                    for(int k=0;k<numOfRoom&&!done;++k){
-                        if(avaliableTime[j][k].totStudents+studentsLeft<=maxRoomLimite){
-                            avaliableTime[j][k].totStudents+=studentsLeft;
-                            avaliableTime[j][k].arrangedCourse.push_back(tmpPartC);
-                            done=true;
+                        if(!isClassArranged[k] && tmpRoom.totStudents + classes[tmpCourse.Classes[k]].stus.size() <= maxRoomLimite){
+                            tmpRoom.arrangedClasses.push_back(tmpCourse.Classes[k]);
+                            tmpRoom.totStudents += classes[tmpCourse.Classes[k]].stus.size();
+                            isClassArranged[k] = 1;
+                            classesArranged++;
                         }
                     }
-                    if(!done){
-                        examinationRoom tmpRoom;
-                        tmpRoom.arrangedCourse.push_back(ordinary[i]);
-                        tmpRoom.totStudents=studentsLeft;
+                    bool arrangedFlag = false;
+                    for(int k = 0; k < avaliableTime[j].size() && !arrangedFlag; ++k)
+                    {
+                        if(tmpRoom.totStudents + avaliableTime[j][k].totStudents <= maxRoomLimite){
+                            for(int l = 0; l < tmpRoom.arrangedClasses.size(); ++l)
+                            {
+                                avaliableTime[j][k].arrangedClasses.push_back(tmpRoom.arrangedClasses[l]);
+                            }
+                            avaliableTime[j][k].totStudents += tmpRoom.totStudents;
+                            arrangedFlag = true;
+                        }
+                    }
+                    if(!arrangedFlag)
+                    {
                         avaliableTime[j].push_back(tmpRoom);
                     }
-                    break;
                 }
+                break;
             }
         }
     }
+
+    //合并处理，把一些人少的教室和当天晚上人少的教室合并（没有学生在时间段内重复的话）
     for(int i=0;i<14;i+=2)
     {
-        QMap<QString,int>stuExist;
-        int numOfRN=avaliableTime[i+1].size();
-        for(int j=numOfRN-1;j>=0;--j)
+        QMap<QString,int> stuExist;
+        int numOfRN = avaliableTime[i+1].size();
+        for(int j = numOfRN-1; j>=0; --j)
         {
-            int numOfC=avaliableTime[i+1][j].arrangedCourse.size();
-            for(int k=0;k<numOfC;++k)
+            int numOfC = avaliableTime[i+1][j].arrangedClasses.size();
+            for(int k = 0; k < numOfC; ++k)
             {
-                int numOfS=avaliableTime[i+1][j].arrangedCourse[k].stus.size();
-                for(int l=0;l<numOfS;++l)stuExist[avaliableTime[i+1][j].arrangedCourse[k].stus[l].stuId]=1;
+                int numOfS = classes[avaliableTime[i + 1][j].arrangedClasses[k]].stus.size();
+                for(int l = 0; l<numOfS; ++l)stuExist[classes[avaliableTime[i + 1][j].arrangedClasses[k]].stus[l].stuId] = 1;
             }
         }
-        int numOfRD=avaliableTime[i].size();
-        for(int j=numOfRD-1;j>=0;--j)
+        int numOfRD = avaliableTime[i].size();
+        for(int j = numOfRD - 1; j >= 0; -- j)
         {
-            if(avaliableTime[i][j].totStudents<=50)
+            if(avaliableTime[i][j].totStudents <= 50)
             {
-                int numOfC=avaliableTime[i][j].arrangedCourse.size();
-                bool flag=false;
-                for(int k=0;k<numOfC&&!flag;++k)
+                int numOfC = avaliableTime[i][j].arrangedClasses.size();
+                bool flag = false;
+                for(int k = 0; k<numOfC && !flag; ++k)
                 {
-                    int numOfS=avaliableTime[i][j].arrangedCourse[k].stus.size();
-                    for(int l=0;l<numOfS&&!flag;++l)flag=stuExist[avaliableTime[i][j].arrangedCourse[k].stus[l].stuId];
+                    int numOfS = classes[avaliableTime[i][j].arrangedClasses[k]].stus.size();
+                    for(int l = 0;l < numOfS && !flag; ++l)flag = stuExist[classes[avaliableTime[i][j].arrangedClasses[k]].stus[l].stuId];
                 }
                 if(!flag)
                 {
-                    for(int k=numOfRN-1;k>=0;--k)
+                    for(int k = numOfRN-1; k >= 0; --k)
                     {
-                        if(avaliableTime[i+1][k].totStudents+avaliableTime[i][j].totStudents<=maxRoomLimite)
+                        if(avaliableTime[i+1][k].totStudents + avaliableTime[i][j].totStudents <= maxRoomLimite)
                         {
-                            for(int l=0;l<numOfC&&!flag;++l)
+                            for(int l = 0;l < numOfC && !flag; ++l)
                             {
-                                avaliableTime[i+1][k].arrangedCourse.push_back(avaliableTime[i][j].arrangedCourse[l]);
+                                avaliableTime[i+1][k].arrangedClasses.push_back(avaliableTime[i][j].arrangedClasses[l]);
                             }
-                            avaliableTime[i+1][k].totStudents+=avaliableTime[i][j].totStudents;
+                            avaliableTime[i+1][k].totStudents += avaliableTime[i][j].totStudents;
                             avaliableTime[i].erase(avaliableTime[i].begin()+j);
                             break;
                         }
@@ -346,8 +409,8 @@ void MainWindow::on_generateTable_clicked(){
     range->dynamicCall("SetValue(const QString&)","学院");
     range = sheet->querySubObject("Cells(int,int)",1,12);
     range->dynamicCall("SetValue(const QString&)","班级");
-    int tmp=1;
-    for(int i=0;i<14;++i){
+    int tmp = 1;
+    for(int i = 0; i < 14; ++i){
         if(avaliableTime[i].size()==0)continue;
         QString date="周";
         switch(i/2){
@@ -375,18 +438,18 @@ void MainWindow::on_generateTable_clicked(){
         }
         if(i&1)date+="晚上";
         else date+="中午";
-        int numOfRoom=avaliableTime[i].size();
-        int dateStart=tmp+1;
-        for(int j=0;j<numOfRoom;++j){
-            QString room="教室"+QString::number(j+1);
-            int roomStart=tmp+1;
-            int numOfC=avaliableTime[i][j].arrangedCourse.size();
-            for(int k=0;k<numOfC;++k){
+        int numOfRoom = avaliableTime[i].size();
+        int dateStart = tmp + 1;
+        for(int j = 0; j < numOfRoom; ++j){
+            QString room = "教室" + QString::number(j+1);
+            int roomStart = tmp + 1;
+            int numOfC = avaliableTime[i][j].arrangedClasses.size();
+            for(int k = 0; k < numOfC; ++k){
                 int courseStart=tmp+1,lastSame=tmp+1;
-                course tmpCourse=avaliableTime[i][j].arrangedCourse[k];
-                int numOfStus=tmpCourse.stus.size();
+                Class tmpClass = classes[avaliableTime[i][j].arrangedClasses[k]];
+                int numOfStus= tmpClass.stus.size();
                 for(int l=0;l<numOfStus;++l){
-                    students tmpStu=tmpCourse.stus[l];
+                    student tmpStu = tmpClass.stus[l];
                     range = sheet->querySubObject("Cells(int,int)",tmp+1,8);
                     range->dynamicCall("SetValue(const QString&)",tmpStu.name);
                     range = sheet->querySubObject("Cells(int,int)",tmp+1,9);
@@ -400,20 +463,20 @@ void MainWindow::on_generateTable_clicked(){
                     range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
                     range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
                     tmp++;
-                    if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
+                    if(l != 0 && tmpStu.className != tmpClass.stus[l - 1].className)
                     {
                         QString cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(tmp-1));
                         range = sheet->querySubObject("Range(const QString&)",cell);
                         range->setProperty("VerticalAlignment", -4108);//xlCenter
                         range->setProperty("WrapText", true);
                         range->setProperty("MergeCells", true);
-                        range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseName);
+                        range->dynamicCall("SetValue(const QString&)",tmpClass.stus[l-1].className);
                         cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(tmp-1));
                         range = sheet->querySubObject("Range(const QString&)",cell);
                         range->setProperty("VerticalAlignment", -4108);//xlCenter
                         range->setProperty("WrapText", true);
                         range->setProperty("MergeCells", true);
-                        range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
+                        range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
                         cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                         range = sheet->querySubObject("Range(const QString&)",cell);
                         range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -430,13 +493,13 @@ void MainWindow::on_generateTable_clicked(){
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
                 range->setProperty("WrapText", true);
                 range->setProperty("MergeCells", true);
-                range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseName);
+                range->dynamicCall("SetValue(const QString&)",tmpClass.stus[numOfStus-1].className);
                 cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(courseEnd));
                 range = sheet->querySubObject("Range(const QString&)",cell);
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
                 range->setProperty("WrapText", true);
                 range->setProperty("MergeCells", true);
-                range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
+                range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
                 cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
                 range = sheet->querySubObject("Range(const QString&)",cell);
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -449,7 +512,7 @@ void MainWindow::on_generateTable_clicked(){
                 range->setProperty("VerticalAlignment", -4108);//xlCenter
                 range->setProperty("WrapText", true);
                 range->setProperty("MergeCells", true);
-                range->dynamicCall("SetValue(const QString&)",tmpCourse.courseName);
+                range->dynamicCall("SetValue(const QString&)",tmpClass.courseName);
             }
             int roomEnd=tmp;
             QString cell=("C"+QString::number(roomStart)+":"+"C"+QString::number(roomEnd));
@@ -486,58 +549,44 @@ void MainWindow::on_generateTable_clicked(){
 
     setMessage("高等数学班考试安排中........");
     QVector<examinationRoom>rooms;
-    int numOfMath=math.size();
-    for(int i=0;i<numOfMath;++i){
-        int numOfRoom=rooms.size();
-        course tmpCourse=math[i];
-        bool done=false;
-        int totStudents=tmpCourse.stus.size(),studentsLeft=tmpCourse.stus.size();
-        while(studentsLeft>=maxRoomLimite)
+    int numOfMath = math.size();
+    for(int i = 0;i < numOfMath; ++i){
+        int classNum = math[i].Classes.size();
+        int classesArranged = 0,
+            totClasses = classNum;
+        course tmpCourse = math[i];
+        int isClassArranged[classNum];
+        for(int j = 0; j < classNum; ++j)isClassArranged[j] = 0;
+        while(classesArranged < totClasses)
         {
-            course tmpPartC;
-            for(int j=totStudents-studentsLeft;j<totStudents-studentsLeft+maxRoomLimite;++j)
-            {
-                tmpPartC.stus.push_back(tmpCourse.stus[j]);
-            }
-            tmpPartC.courseName=tmpCourse.courseName;
-            tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-            tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
             examinationRoom tmpRoom;
-            tmpRoom.arrangedCourse.push_back(tmpPartC);
-            tmpRoom.totStudents=maxRoomLimite;
-            rooms.push_back(tmpRoom);
-            studentsLeft-=maxRoomLimite;
-        }
-        if(studentsLeft)
-        {
-            course tmpPartC;
-            for(int j=totStudents-studentsLeft;j<totStudents;++j)
+            for(int j = 0; j < classNum; ++j)
             {
-                tmpPartC.stus.push_back(tmpCourse.stus[j]);
+                if(!isClassArranged[j] && tmpRoom.totStudents + classes[tmpCourse.Classes[j]].stus.size() <= maxRoomLimite){
+                    tmpRoom.arrangedClasses.push_back(tmpCourse.Classes[j]);
+                    tmpRoom.totStudents += classes[tmpCourse.Classes[j]].stus.size();
+                    isClassArranged[j] = 1;
+                    classesArranged++;
+                }
             }
-            tmpPartC.courseName=tmpCourse.courseName;
-            tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-            tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
-            for(int k=0;k<numOfRoom&&!done;++k){
-                if(rooms[k].totStudents<100&&rooms[k].totStudents+studentsLeft<=maxRoomLimite){
-                    int numOfCourse=rooms[k].arrangedCourse.size();
-                    bool flag=tmpCourse.courseName.contains("英文");
-                    for(int j=0;j<numOfCourse&&flag==tmpCourse.courseName.contains("英文");++j)flag=rooms[k].arrangedCourse[j].courseName.contains("英文");
-                    if(flag!=tmpCourse.courseName.contains("英文"))continue;
-                    rooms[k].totStudents+=studentsLeft;
-                    rooms[k].arrangedCourse.push_back(tmpPartC);
-                    done=true;
+            int numOfRoom = rooms.size();
+            bool done = false;
+            for(int k = 0; k < numOfRoom && !done; ++k){
+                if(rooms[k].totStudents + tmpRoom.totStudents <= maxRoomLimite){
+                    int numOfCourse = rooms[k].arrangedClasses.size();
+                    bool flag = tmpCourse.courseName.contains("英文");
+                    for(int j = 0; j < numOfCourse && flag == tmpCourse.courseName.contains("英文"); ++j)flag = classes[rooms[k].arrangedClasses[j]].courseName.contains("英文");
+                    if(flag == tmpCourse.courseName.contains("英文")){
+                        for(int l = 0; l < tmpRoom.arrangedClasses.size(); ++l)rooms[k].arrangedClasses.push_back(tmpRoom.arrangedClasses[l]);
+                        rooms[k].totStudents += tmpRoom.totStudents;
+                        done=true;
+                    }
                 }
             }
             if(!done){
-                examinationRoom tmpRoom;
-                tmpRoom.arrangedCourse.push_back(tmpPartC);
-                tmpRoom.totStudents=studentsLeft;
                 rooms.push_back(tmpRoom);
             }
-
         }
-
     }
     sheets->querySubObject("Add()");
     sheet=sheets->querySubObject("Item(int)",1);
@@ -565,21 +614,21 @@ void MainWindow::on_generateTable_clicked(){
     range->dynamicCall("SetValue(const QString&)","补考确认");
     range = sheet->querySubObject("Cells(int,int)",1,11);
     range->dynamicCall("SetValue(const QString&)","学院");
-    range = sheet->querySubObject("Cells(int,int)",1,10);
+    range = sheet->querySubObject("Cells(int,int)",1,12);
     range->dynamicCall("SetValue(const QString&)","班级");
-    tmp=1;
-    QString date="周六下午";
-    int numOfRoom=rooms.size();
-    for(int j=0;j<numOfRoom;++j){
-        QString room="教室"+QString::number(j+1);
+    tmp = 1;
+    QString date = "周六下午";
+    int numOfRoom = rooms.size();
+    for(int j = 0;j < numOfRoom; ++j){
+        QString room = "教室"+QString::number(j + 1);
         int roomStart=tmp+1;
-        int numOfC=rooms[j].arrangedCourse.size();
-        for(int k=0;k<numOfC;++k){
-            int courseStart=tmp+1,lastSame=tmp+1;
-            course tmpCourse=rooms[j].arrangedCourse[k];
-            int numOfStus=tmpCourse.stus.size();
-            for(int l=0;l<numOfStus;++l){
-                students tmpStu=tmpCourse.stus[l];
+        int numOfC = rooms[j].arrangedClasses.size();
+        for(int k = 0;k < numOfC; ++k){
+            int courseStart = tmp+1, lastSame = tmp+1;
+            Class tmpClass = classes[rooms[j].arrangedClasses[k]];
+            int numOfStus = tmpClass.stus.size();
+            for(int l = 0;l < numOfStus; ++l){
+                student tmpStu = tmpClass.stus[l];
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,8);
                 range->dynamicCall("SetValue(const QString&)",tmpStu.name);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,9);
@@ -588,25 +637,25 @@ void MainWindow::on_generateTable_clicked(){
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                 if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                 else range->dynamicCall("SetValue(const QString&)","否");
-                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
-                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
                 tmp++;
-                if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
+                if(l!=0 && tmpStu.className != tmpClass.stus[l-1].className)
                 {
                     QString cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseName);
+                    range->dynamicCall("SetValue(const QString&)",tmpClass.stus[l-1].className);
                     cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
+                    range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
                     cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -623,19 +672,19 @@ void MainWindow::on_generateTable_clicked(){
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.courseName);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.courseName);
             cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseName);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.stus[numOfStus-1].className);
             cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
             cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -678,48 +727,35 @@ void MainWindow::on_generateTable_clicked(){
     setMessage("计算机应用A考试安排中........");
     rooms.clear();
     int numOfComputer=computerA.size();
-    for(int i=0;i<numOfComputer;++i){
-        int numOfRoom=rooms.size();
-        course tmpCourse=courses[courseExist[computerA[i].courseName]-1];
-        bool done=false;
-        int totStudents=tmpCourse.stus.size(),studentsLeft=tmpCourse.stus.size();
-        while(studentsLeft>=maxRoomLimite)
+    for(int i = 0; i < numOfComputer; ++i){
+        course tmpCourse = computerA[i];
+        int classNum = tmpCourse.Classes.size();
+        int classesArranged = 0,
+            totClasses = classNum;
+        int isClassArranged[classNum];
+        for(int j = 0; j < classNum; ++j)isClassArranged[j] = 0;
+        while(classesArranged < totClasses)
         {
-            course tmpPartC;
-            for(int j=totStudents-studentsLeft;j<totStudents-studentsLeft+maxRoomLimite;++j)
-            {
-                tmpPartC.stus.push_back(tmpCourse.stus[j]);
-            }
-            tmpPartC.courseName=tmpCourse.courseName;
-            tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-            tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
             examinationRoom tmpRoom;
-            tmpRoom.arrangedCourse.push_back(tmpPartC);
-            tmpRoom.totStudents=maxRoomLimite;
-            rooms.push_back(tmpRoom);
-            studentsLeft-=maxRoomLimite;
-        }
-        if(studentsLeft)
-        {
-            course tmpPartC;
-            for(int j=totStudents-studentsLeft;j<totStudents;++j)
+            for(int j = 0; j < classNum; ++j)
             {
-                tmpPartC.stus.push_back(tmpCourse.stus[j]);
+                if(!isClassArranged[j] && tmpRoom.totStudents + classes[tmpCourse.Classes[j]].stus.size() <= maxRoomLimite){
+                    tmpRoom.arrangedClasses.push_back(tmpCourse.Classes[j]);
+                    tmpRoom.totStudents += classes[tmpCourse.Classes[j]].stus.size();
+                    isClassArranged[j] = 1;
+                    classesArranged++;
+                }
             }
-            tmpPartC.courseName=tmpCourse.courseName;
-            tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-            tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
-            for(int k=0;k<numOfRoom&&!done;++k){
-                if(rooms[k].totStudents<100&&rooms[k].totStudents+studentsLeft<=maxRoomLimite){
-                    rooms[k].totStudents+=studentsLeft;
-                    rooms[k].arrangedCourse.push_back(tmpPartC);
+            int numOfRoom = rooms.size();
+            bool done = false;
+            for(int k = 0; k < numOfRoom && !done; ++k){
+                if(rooms[k].totStudents + tmpRoom.totStudents <= maxRoomLimite){
+                    for(int l = 0; l < tmpRoom.arrangedClasses.size(); ++l)rooms[k].arrangedClasses.push_back(tmpRoom.arrangedClasses[l]);
+                    rooms[k].totStudents += tmpRoom.totStudents;
                     done=true;
                 }
             }
             if(!done){
-                examinationRoom tmpRoom;
-                tmpRoom.arrangedCourse.push_back(tmpPartC);
-                tmpRoom.totStudents=studentsLeft;
                 rooms.push_back(tmpRoom);
             }
         }
@@ -758,14 +794,14 @@ void MainWindow::on_generateTable_clicked(){
     numOfRoom=rooms.size();
     for(int j=0;j<numOfRoom;++j){
         QString room="教室"+QString::number(j+1);
-        int roomStart=tmp+1;
-        int numOfC=rooms[j].arrangedCourse.size();
-        for(int k=0;k<numOfC;++k){
-            int courseStart=tmp+1,lastSame=tmp+1;
-            course tmpCourse=rooms[j].arrangedCourse[k];
-            int numOfStus=tmpCourse.stus.size();
-            for(int l=0;l<numOfStus;++l){
-                students tmpStu=tmpCourse.stus[l];
+        int roomStart = tmp+1;
+        int numOfC = rooms[j].arrangedClasses.size();
+        for(int k = 0; k < numOfC; ++k){
+            int courseStart = tmp+1,lastSame = tmp+1;
+            Class tmpClass = classes[rooms[j].arrangedClasses[k]];
+            int numOfStus = tmpClass.stus.size();
+            for(int l = 0; l < numOfStus; ++l){
+                student tmpStu=tmpClass.stus[l];
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,8);
                 range->dynamicCall("SetValue(const QString&)",tmpStu.name);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,9);
@@ -774,25 +810,25 @@ void MainWindow::on_generateTable_clicked(){
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                 if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                 else range->dynamicCall("SetValue(const QString&)","否");
-                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
-                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
                 tmp++;
-                if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
+                if(l != 0 && tmpStu.className != tmpClass.stus[l - 1].className)
                 {
-                    QString cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(tmp-1));
+                    QString cell = ("E"+QString::number(lastSame)+":"+"E"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseName);
+                    range->dynamicCall("SetValue(const QString&)",tmpClass.stus[l-1].className);
                     cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
+                    range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
                     cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -809,19 +845,19 @@ void MainWindow::on_generateTable_clicked(){
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.courseName);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.courseName);
             cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseName);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.stus[numOfStus-1].className);
             cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
             cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -862,49 +898,36 @@ void MainWindow::on_generateTable_clicked(){
 
     setMessage("计算机应用B考试安排中........");
     rooms.clear();
-    numOfComputer=computerB.size();
-    for(int i=0;i<numOfComputer;++i){
-        int numOfRoom=rooms.size();
-        course tmpCourse=courses[courseExist[computerB[i].courseName]-1];
-        bool done=false;
-        int totStudents=tmpCourse.stus.size(),studentsLeft=tmpCourse.stus.size();
-        while(studentsLeft>=maxRoomLimite)
+    numOfComputer = computerB.size();
+    for(int i = 0; i < numOfComputer; ++i){
+        course tmpCourse = computerB[i];
+        int classNum = tmpCourse.Classes.size();
+        int classesArranged = 0,
+            totClasses = classNum;
+        int isClassArranged[classNum];
+        for(int j = 0; j < classNum; ++j)isClassArranged[j] = 0;
+        while(classesArranged < totClasses)
         {
-            course tmpPartC;
-            for(int j=totStudents-studentsLeft;j<totStudents-studentsLeft+maxRoomLimite;++j)
-            {
-                tmpPartC.stus.push_back(tmpCourse.stus[j]);
-            }
-            tmpPartC.courseName=tmpCourse.courseName;
-            tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-            tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
             examinationRoom tmpRoom;
-            tmpRoom.arrangedCourse.push_back(tmpPartC);
-            tmpRoom.totStudents=maxRoomLimite;
-            rooms.push_back(tmpRoom);
-            studentsLeft-=maxRoomLimite;
-        }
-        if(studentsLeft)
-        {
-            course tmpPartC;
-            for(int j=totStudents-studentsLeft;j<totStudents;++j)
+            for(int j = 0; j < classNum; ++j)
             {
-                tmpPartC.stus.push_back(tmpCourse.stus[j]);
+                if(!isClassArranged[j] && tmpRoom.totStudents + classes[tmpCourse.Classes[j]].stus.size() <= maxRoomLimite){
+                    tmpRoom.arrangedClasses.push_back(tmpCourse.Classes[j]);
+                    tmpRoom.totStudents += classes[tmpCourse.Classes[j]].stus.size();
+                    isClassArranged[j] = 1;
+                    classesArranged++;
+                }
             }
-            tmpPartC.courseName=tmpCourse.courseName;
-            tmpPartC.chineseStuExist=tmpCourse.chineseStuExist;
-            tmpPartC.internationalStuExist=tmpCourse.internationalStuExist;
-            for(int k=0;k<numOfRoom&&!done;++k){
-                if(rooms[k].totStudents<100&&rooms[k].totStudents+studentsLeft<=maxRoomLimite){
-                    rooms[k].totStudents+=studentsLeft;
-                    rooms[k].arrangedCourse.push_back(tmpPartC);
+            int numOfRoom = rooms.size();
+            bool done = false;
+            for(int k = 0; k < numOfRoom && !done; ++k){
+                if(rooms[k].totStudents + tmpRoom.totStudents <= maxRoomLimite){
+                    for(int l = 0; l < tmpRoom.arrangedClasses.size(); ++l)rooms[k].arrangedClasses.push_back(tmpRoom.arrangedClasses[l]);
+                    rooms[k].totStudents += tmpRoom.totStudents;
                     done=true;
                 }
             }
             if(!done){
-                examinationRoom tmpRoom;
-                tmpRoom.arrangedCourse.push_back(tmpPartC);
-                tmpRoom.totStudents=studentsLeft;
                 rooms.push_back(tmpRoom);
             }
         }
@@ -942,16 +965,16 @@ void MainWindow::on_generateTable_clicked(){
 
     numOfRoom=rooms.size();
     //dateStart=tmp+1;
-    for(int j=0;j<numOfRoom;++j){
-        QString room="教室"+QString::number(j+1);
-        int roomStart=tmp+1;
-        int numOfC=rooms[j].arrangedCourse.size();
-        for(int k=0;k<numOfC;++k){
-            int courseStart=tmp+1,lastSame=tmp+1;
-            course tmpCourse=rooms[j].arrangedCourse[k];
-            int numOfStus=tmpCourse.stus.size();
-            for(int l=0;l<numOfStus;++l){
-                students tmpStu=tmpCourse.stus[l];
+    for(int j = 0;j < numOfRoom; ++j){
+        QString room = "教室"+QString::number(j+1);
+        int roomStart = tmp+1;
+        int numOfC = rooms[j].arrangedClasses.size();
+        for(int k = 0;k < numOfC; ++k){
+            int courseStart = tmp + 1,lastSame = tmp + 1;
+            Class tmpClass = classes[rooms[j].arrangedClasses[k]];
+            int numOfStus = tmpClass.stus.size();
+            for(int l = 0; l < numOfStus; ++l){
+                student tmpStu=tmpClass.stus[l];
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,8);
                 range->dynamicCall("SetValue(const QString&)",tmpStu.name);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,9);
@@ -960,25 +983,25 @@ void MainWindow::on_generateTable_clicked(){
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,10);
                 if(tmpStu.isChecked)range->dynamicCall("SetValue(const QString&)","是");
                 else range->dynamicCall("SetValue(const QString&)","否");
-                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,11);
-                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.college);
                 range = sheet->querySubObject("Cells(int,int)",tmp+1,12);
+                range->dynamicCall("SetValue(const QString&)",tmpStu.professionalClass);
                 tmp++;
-                if(l!=0&&tmpStu.courseName!=tmpCourse.stus[l-1].courseName)
+                if(l != 0 && tmpStu.className != tmpClass.stus[l-1].className)
                 {
                     QString cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].courseName);
+                    range->dynamicCall("SetValue(const QString&)",tmpClass.stus[l-1].className);
                     cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
                     range->setProperty("WrapText", true);
                     range->setProperty("MergeCells", true);
-                    range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[l-1].teacher.split('/')[1]);
+                    range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
                     cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(tmp-1));
                     range = sheet->querySubObject("Range(const QString&)",cell);
                     range->setProperty("VerticalAlignment", -4108);//xlCenter
@@ -995,19 +1018,19 @@ void MainWindow::on_generateTable_clicked(){
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.courseName);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.courseName);
             cell=("E"+QString::number(lastSame)+":"+"E"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].courseName);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.stus[numOfStus-1].className);
             cell=("F"+QString::number(lastSame)+":"+"F"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
             range->setProperty("WrapText", true);
             range->setProperty("MergeCells", true);
-            range->dynamicCall("SetValue(const QString&)",tmpCourse.stus[numOfStus-1].teacher.split('/')[1]);
+            range->dynamicCall("SetValue(const QString&)",tmpClass.teacher.split('/')[1]);
             cell=("G"+QString::number(lastSame)+":"+"G"+QString::number(courseEnd));
             range = sheet->querySubObject("Range(const QString&)",cell);
             range->setProperty("VerticalAlignment", -4108);//xlCenter
